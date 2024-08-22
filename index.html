@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<meta charset="utf-8">
+	<meta http-equiv="X-UA-Compatible" content="IE=edge">
+	<title>Gunshot Detection Simulation</title>
+</head>
+<body>
+
+
+	
+
+<script type="text/javascript" src="p5.min.js"></script>
+<script type="text/javascript">
+
+const soundSpeed = 6;
+let linesToBeShown = false;
+let angleCalculationMode = "1" // 1-> atan method and 0-> atan2 method;
+
+class MicArray
+{
+  constructor(x, y, distFromCenter)
+  {
+    this.x = x;
+    this.y = y;
+    this.dist = distFromCenter;
+    this.micRadius = 15;
+    this.micArray = [
+      {
+        x: this.x+this.dist,
+        y: this.y
+      },
+      
+      {
+        x: this.x,
+        y: this.y - this.dist
+      },
+      
+      {
+        x: this.x-this.dist,
+        y: this.y
+      },
+      
+      {
+        x: this.x,
+        y: this.y + this.dist
+      }
+    ]
+    this.detectedTimeArray = [] ;
+    
+  }
+  
+  draw()
+  {   
+    if(linesToBeShown)
+    {
+      stroke("black");
+      line(this.micArray[0].x,this.micArray[0].y,this.micArray[2].x,this.micArray[2].y);
+      line(this.micArray[1].x,this.micArray[1].y,this.micArray[3].x,this.micArray[3].y);
+    }
+    fill("red");
+    stroke("red");
+    for(let i = 0; i<4; i++)
+      {
+        circle(this.micArray[i].x, this.micArray[i].y, this.micRadius);
+      }
+
+   
+  }
+
+  detectSound(soundParticleArray)
+  {
+    let detectTimeArray = [];
+    for(let i = 0; i<4; i++)
+    {
+      for(let j = 0; j< soundParticleArray.length; j++)
+      {
+        if((abs(this.micArray[i].x- soundParticleArray[j][i].x) <= 3) && (abs(this.micArray[i].y - soundParticleArray[j][i].y) <= 3) )
+        {
+          this.detectedTimeArray[i] = Date.now();
+        }
+      }
+    }
+    
+  }
+
+  plotDetectAngle()
+  {
+    if(this.detectedTimeArray.length == 4)
+    {
+      let tx = this.detectedTimeArray[0]-this.detectedTimeArray[2];
+      let ty = this.detectedTimeArray[1]-this.detectedTimeArray[3];
+
+      
+      if(angleCalculationMode== "1")
+      {
+        let angle = atan(ty/tx);
+        let detectAngleDotX = -(this.dist/2)*cos(angle) //  negative sign to flip the horizontal direction
+        let detectAngleDotY = (this.dist/2)*sin(angle);
+
+        stroke("deepskyblue");
+        fill("deepskyblue");
+        
+        translate(this.x, this.y);
+
+        circle(detectAngleDotX,detectAngleDotY,7);
+        
+        translate(-this.x, -this.y);
+      }
+      else
+      {
+        let x = soundSpeed*tx;
+        let y = soundSpeed*ty;
+
+        translate(this.x, this.y);
+        
+        let angle = atan2(y-this.y,x-this.x);
+
+        
+        let detectAngleDotX = -(this.dist/2)*cos(angle) //  negative sign to flip the horizontal direction
+        let detectAngleDotY = (this.dist/2)*sin(angle);
+
+        stroke("deepskyblue");
+        fill("deepskyblue");
+        circle(detectAngleDotX,detectAngleDotY,7);
+
+        translate(-this.x, -this.y);
+      }
+      
+    }
+  }
+  
+  update(soundParticleArray)
+  {
+    this.draw();
+    this.detectSound(soundParticleArray);
+    this.plotDetectAngle();
+  }    
+}
+
+
+class SoundSource
+{
+  constructor(x,y,radius)
+  {
+    this.x = x;
+    this.y = y;
+    this.radius = radius;
+    this.soundParticleArray=[];
+    this.particleSpeed = soundSpeed;
+  }
+
+  generateSoundParticle(micArray)
+  {
+    let particleObjArray=[];
+    for(let i = 0; i< 4; i++)
+    {
+      particleObjArray.push(this.getParticleObj(this.x, this.y, micArray[i].x, micArray[i].y,this.particleSpeed))
+    }
+    
+
+    this.soundParticleArray.push(particleObjArray);
+  }
+
+  getParticleObj(sourceX, sourceY, micX, micY,speed)
+  {
+    translate(sourceX, sourceY);
+
+    let angle = atan2(micY-sourceY, micX-sourceX);
+
+    let obj = 
+    {
+      x: sourceX,
+      y: sourceY,
+      v :
+      {
+        x: speed*cos(angle), y: speed*sin(angle)
+      }
+    }
+    translate(-sourceX, -sourceY);
+
+    return obj;
+  }
+
+  draw(micArrayX, micArrayY)
+  {
+    stroke("gold");
+    fill("gold");
+    circle(this.x, this.y, this.radius);
+
+    fill("black");
+    stroke("black");
+
+    // drawing sound particles
+    for(let i = 0; i< this.soundParticleArray.length;i++)
+    {
+      for(let j =0; j< this.soundParticleArray[i].length; j++)
+      {
+          circle(this.soundParticleArray[i][j].x,this.soundParticleArray[i][j].y, 5);
+      }
+    }
+
+    // drawing line between orgin of mic Array and center of sound source
+    if(linesToBeShown)
+    {
+      line(micArrayX, micArrayY, this.x, this.y)
+    }
+  }
+
+  update(micArrayX, micArrayY)
+  {
+    this.draw(micArrayX, micArrayY);
+    for(let i = 0; i< this.soundParticleArray.length;i++)
+    {
+      for(let j =0; j< this.soundParticleArray[i].length; j++)
+      {
+        this.soundParticleArray[i][j].x += this.soundParticleArray[i][j].v.x;
+        this.soundParticleArray[i][j].y += this.soundParticleArray[i][j].v.y;
+      }
+    }    
+  }
+}
+
+
+let micArray;
+let soundSource;
+let soundParticleArray;
+
+function setup() {
+ 	createCanvas(displayWidth-20, displayHeight-(0.1*displayHeight));
+  angleMode(DEGREES);
+
+  // object declations;
+  micArray = new MicArray(displayWidth/2,displayHeight/2-100, 100);
+  soundSource = new SoundSource(100, 200, 60);
+}
+
+function draw() {
+  background('white');
+
+  text("D: to change position of sound source", 20, 20);
+  text("P: to generate sound particles", 20, 40);
+  text("L: Toggle lines", 20, 60);
+  text("A: Toggle Angle calculation mode", 20, 80);
+
+
+  micArray.update(soundSource.soundParticleArray);
+  soundSource.update(micArray.x, micArray.y);
+}
+
+
+function keyPressed()
+{
+  if (key == "p")
+  {
+    soundSource.generateSoundParticle(micArray.micArray);
+  }
+  if(key == "d")
+  {
+    soundSource.x = mouseX;
+    soundSource.y = mouseY;
+  }
+  if(key == "l")
+  {
+    linesToBeShown = !linesToBeShown;
+  }
+  if(key == "a")
+  {
+    angleCalculationMode = (angleCalculationMode==1) ? 0: 1;
+  }
+}
+
+// function mousePressed()
+// {
+//   // console.log(`X:${mouseX} Y:${mouseY}`); 
+// }
+</script>
+</body>
+</html>
